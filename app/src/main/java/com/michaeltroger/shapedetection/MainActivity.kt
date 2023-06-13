@@ -1,35 +1,41 @@
 package com.michaeltroger.shapedetection
 
 import android.Manifest
-import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener2
-import org.opencv.android.CameraBridgeViewBase
-import android.widget.Toast
-import com.michaeltroger.shapedetection.views.OverlayView
 import android.app.ActivityManager
 import android.content.pm.PackageManager
-import org.opencv.android.BaseLoaderCallback
-import org.opencv.android.LoaderCallbackInterface
 import android.os.Bundle
 import android.os.Handler
-import android.view.WindowManager
-import android.view.SurfaceView
-import org.opencv.android.OpenCVLoader
-import org.opencv.android.CameraBridgeViewBase.CvCameraViewFrame
-import org.opencv.imgproc.Imgproc
 import android.os.Looper
 import android.util.Log
+import android.view.SurfaceView
 import android.view.View
+import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import org.opencv.core.*
-import java.util.*
+import com.michaeltroger.shapedetection.views.OverlayView
+import org.opencv.android.BaseLoaderCallback
+import org.opencv.android.CameraBridgeViewBase
+import org.opencv.android.CameraBridgeViewBase.CvCameraViewFrame
+import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener2
+import org.opencv.android.LoaderCallbackInterface
+import org.opencv.android.OpenCVLoader
+import org.opencv.core.Core
+import org.opencv.core.Mat
+import org.opencv.core.MatOfPoint
+import org.opencv.core.MatOfPoint2f
+import org.opencv.core.Point
+import org.opencv.core.Scalar
+import org.opencv.core.Size
+import org.opencv.imgproc.Imgproc
 import kotlin.math.abs
 
 /**
  * the main activity - entry to the application
  */
 class MainActivity : ComponentActivity(), CvCameraViewListener2 {
+
     /**
      * the camera view
      */
@@ -124,18 +130,20 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
     }
 
     private val requestPermissionLauncher =
-            registerForActivityResult(ActivityResultContracts.RequestPermission()
-            ) { isGranted: Boolean ->
-                if (isGranted) {
-                    onPermissionGranted()
-                } else {
-                    checkPermissonAndInitialize()
-                }
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted: Boolean ->
+            if (isGranted) {
+                onPermissionGranted()
+            } else {
+                checkPermissonAndInitialize()
             }
+        }
 
     private fun checkPermissonAndInitialize() {
         if (ContextCompat.checkSelfPermission(baseContext, Manifest.permission.CAMERA)
-                == PackageManager.PERMISSION_GRANTED) {
+            == PackageManager.PERMISSION_GRANTED
+        ) {
             onPermissionGranted()
         } else {
             requestPermissionLauncher.launch(Manifest.permission.CAMERA)
@@ -189,27 +197,29 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
     }
 
     override fun onCameraViewStarted(width: Int, height: Int) {
-        //nothing to do
+        // nothing to do
     }
+
     override fun onCameraViewStopped() {
-        //nothing to do
+        // nothing to do
     }
 
     override fun onCameraFrame(inputFrame: CvCameraViewFrame): Mat {
         if (LOG_MEM_USAGE) {
             activityManager!!.getMemoryInfo(mi)
             val availableMegs = mi!!.availMem / 1048576L // 1024 x 1024
-            //Percentage can be calculated for API 16+
-            //long percentAvail = mi.availMem / mi.totalMem;
+            // Percentage can be calculated for API 16+
+            // long percentAvail = mi.availMem / mi.totalMem;
             Log.d(TAG, "available mem: $availableMegs")
         }
 
         // get the camera frame as gray scale image
-        val gray: Mat = if (DETECT_RED_OBJECTS_ONLY) {
+        val gray: Mat = inputFrame.gray()
+       /*     if (DETECT_RED_OBJECTS_ONLY) {
             inputFrame.rgba()
         } else {
             inputFrame.gray()
-        }
+        }*/
 
         // the image to output on the screen in the end
         // -> get the unchanged color image
@@ -218,21 +228,9 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
         // down-scale and upscale the image to filter out the noise
         Imgproc.pyrDown(gray, downscaled, Size((gray.cols() / 2).toDouble(), (gray.rows() / 2).toDouble()))
         Imgproc.pyrUp(downscaled, upscaled, gray.size())
-        if (DETECT_RED_OBJECTS_ONLY) {
-            // convert the image from RGBA to HSV
-            Imgproc.cvtColor(upscaled, hsv, Imgproc.COLOR_RGB2HSV)
-            // threshold the image for the lower and upper HSV red range
-            Core.inRange(hsv, HSV_LOW_RED1, HSV_LOW_RED2, lowerRedRange)
-            Core.inRange(hsv, HSV_HIGH_RED1, HSV_HIGH_RED2, upperRedRange)
-            // put the two thresholded images together
-            Core.addWeighted(lowerRedRange, 1.0, upperRedRange, 1.0, 0.0, bw)
-            // apply canny to get edges only
-            Imgproc.Canny(bw, bw, 0.0, 255.0)
-        } else {
-            // Use Canny instead of threshold to catch squares with gradient shading
-            Imgproc.Canny(upscaled, bw, 0.0, 255.0)
-        }
 
+        // Use Canny instead of threshold to catch squares with gradient shading
+        Imgproc.Canny(upscaled, bw, 0.0, 255.0)
 
         // dilate canny output to remove potential
         // holes between edge segments
@@ -242,11 +240,11 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
         val contours: List<MatOfPoint> = ArrayList()
         contourImage = bw!!.clone()
         Imgproc.findContours(
-                contourImage,
-                contours,
-                hierarchyOutputVector,
-                Imgproc.RETR_EXTERNAL,
-                Imgproc.CHAIN_APPROX_SIMPLE
+            contourImage,
+            contours,
+            hierarchyOutputVector,
+            Imgproc.RETR_EXTERNAL,
+            Imgproc.CHAIN_APPROX_SIMPLE
         )
 
         // loop over all found contours
@@ -255,21 +253,21 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
 
             // approximates a polygonal curve with the specified precision
             Imgproc.approxPolyDP(
-                    curve,
-                    approxCurve,
-                    0.02 * Imgproc.arcLength(curve, true),
-                    true
+                curve,
+                approxCurve,
+                0.02 * Imgproc.arcLength(curve, true),
+                true
             )
             val numberVertices = approxCurve!!.total().toInt()
             val contourArea = Imgproc.contourArea(cnt)
             Log.d(TAG, "vertices:$numberVertices")
 
-            // ignore to small areas
+          /*  // ignore too small areas
             if (abs(contourArea) < 100 // || !Imgproc.isContourConvex(
             ) {
                 continue
             }
-
+*/
             // triangle detection
             if (numberVertices == 3) {
                 if (DISPLAY_IMAGES) {
@@ -284,11 +282,11 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
                 val cos: MutableList<Double> = ArrayList()
                 for (j in 2 until numberVertices + 1) {
                     cos.add(
-                            angle(
-                                    approxCurve!!.toArray()[j % numberVertices],
-                                    approxCurve!!.toArray()[j - 2],
-                                    approxCurve!!.toArray()[j - 1]
-                            )
+                        angle(
+                            approxCurve!!.toArray()[j % numberVertices],
+                            approxCurve!!.toArray()[j - 2],
+                            approxCurve!!.toArray()[j - 1]
+                        )
                     )
                 }
                 cos.sort()
@@ -302,24 +300,17 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
                     } else {
                         setLabel(dst, "RECT", cnt)
                     }
-                } else if (numberVertices == 5 && mincos >= -0.34 && maxcos <= -0.27) {
-                    if (!DISPLAY_IMAGES) {
-                        setLabel(dst, "PENTA", cnt)
-                    }
-                } else if (numberVertices == 6 && mincos >= -0.55 && maxcos <= -0.45) {
-                    if (!DISPLAY_IMAGES) {
-                        setLabel(dst, "HEXA", cnt)
-                    }
                 }
             } else {
                 val r = Imgproc.boundingRect(cnt)
                 val radius = r.width / 2
                 if (abs(
-                                1 - r.width / r.height
-                        ) <= 0.2 &&
-                        abs(
-                                1 - contourArea / (Math.PI * radius * radius)
-                        ) <= 0.2) {
+                        1 - r.width / r.height
+                    ) <= 0.2 &&
+                    abs(
+                            1 - contourArea / (Math.PI * radius * radius)
+                        ) <= 0.2
+                ) {
                     if (!DISPLAY_IMAGES) {
                         setLabel(dst, "CIR", cnt)
                     }
@@ -339,14 +330,14 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
      */
     private fun setLabel(im: Mat, label: String, contour: MatOfPoint) {
         val fontface = Core.FONT_HERSHEY_SIMPLEX
-        val scale = 3.0 //0.4;
-        val thickness = 3 //1;
+        val scale = 0.4 // 0.4; 3.0
+        val thickness = 1 // 1; 3
         val baseline = IntArray(1)
         val text = Imgproc.getTextSize(label, fontface, scale, thickness, baseline)
         val r = Imgproc.boundingRect(contour)
         val pt = Point(
-                r.x + (r.width - text.width) / 2,
-                r.y + (r.height + text.height) / 2
+            r.x + (r.width - text.width) / 2,
+            r.y + (r.height + text.height) / 2
         )
         /*
         Imgproc.rectangle(
@@ -356,7 +347,8 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
                 new Scalar(255,255,255),
                 -1
                 );
-        */Imgproc.putText(im, label, pt, fontface, scale, RGB_RED, thickness)
+        */
+        Imgproc.putText(im, label, pt, fontface, scale, RGB_RED, thickness)
     }
 
     /**
@@ -371,6 +363,7 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
     }
 
     companion object {
+
         /**
          * class name for debugging with logcat
          */
@@ -443,10 +436,12 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
             val dy1 = pt1.y - pt0.y
             val dx2 = pt2.x - pt0.x
             val dy2 = pt2.y - pt0.y
-            return ((dx1 * dx2 + dy1 * dy2)
-                    / Math.sqrt(
-                    (dx1 * dx1 + dy1 * dy1) * (dx2 * dx2 + dy2 * dy2) + 1e-10
-            ))
+            return (
+                (dx1 * dx2 + dy1 * dy2) /
+                    Math.sqrt(
+                        (dx1 * dx1 + dy1 * dy1) * (dx2 * dx2 + dy2 * dy2) + 1e-10
+                    )
+                )
         }
     }
 
