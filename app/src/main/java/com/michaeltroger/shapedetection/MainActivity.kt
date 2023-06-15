@@ -29,7 +29,6 @@ import org.opencv.core.Point
 import org.opencv.core.Scalar
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
-import kotlin.math.abs
 
 /**
  * the main activity - entry to the application
@@ -164,9 +163,8 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
     }
 
     private fun onPermissionGranted() {
-        if (FIXED_FRAME_SIZE) {
-            mOpenCvCameraView!!.setMaxFrameSize(FRAME_SIZE_WIDTH, FRAME_SIZE_HEIGHT)
-        }
+        mOpenCvCameraView!!.setMaxFrameSize(FRAME_SIZE_WIDTH, FRAME_SIZE_HEIGHT)
+
         mOpenCvCameraView!!.visibility = SurfaceView.VISIBLE
         mOpenCvCameraView!!.setCvCameraViewListener(this)
         mi = ActivityManager.MemoryInfo()
@@ -205,21 +203,8 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
     }
 
     override fun onCameraFrame(inputFrame: CvCameraViewFrame): Mat {
-        if (LOG_MEM_USAGE) {
-            activityManager!!.getMemoryInfo(mi)
-            val availableMegs = mi!!.availMem / 1048576L // 1024 x 1024
-            // Percentage can be calculated for API 16+
-            // long percentAvail = mi.availMem / mi.totalMem;
-            Log.d(TAG, "available mem: $availableMegs")
-        }
-
         // get the camera frame as gray scale image
         val gray: Mat = inputFrame.gray()
-       /*     if (DETECT_RED_OBJECTS_ONLY) {
-            inputFrame.rgba()
-        } else {
-            inputFrame.gray()
-        }*/
 
         // the image to output on the screen in the end
         // -> get the unchanged color image
@@ -262,12 +247,6 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
             val contourArea = Imgproc.contourArea(cnt)
             Log.d(TAG, "vertices:$numberVertices")
 
-          /*  // ignore too small areas
-            if (abs(contourArea) < 100 // || !Imgproc.isContourConvex(
-            ) {
-                continue
-            }
-*/
             // triangle detection
             if (numberVertices == 3) {
                 if (DISPLAY_IMAGES) {
@@ -304,16 +283,13 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
             } else {
                 val r = Imgproc.boundingRect(cnt)
                 val radius = r.width / 2
-                if (abs(
-                        1 - r.width / r.height
-                    ) <= 0.2 &&
-                    abs(
-                            1 - contourArea / (Math.PI * radius * radius)
-                        ) <= 0.2
-                ) {
-                    if (!DISPLAY_IMAGES) {
-                        setLabel(dst, "CIR", cnt)
-                    }
+                val aspectRatio = r.width.toDouble() / r.height.toDouble()
+                val areaRatio = Math.abs(contourArea / (Math.PI * radius * radius))
+
+                // Circle detection based on aspect ratio and area ratio
+                if (Math.abs(1 - aspectRatio) <= 0.2 && areaRatio <= 0.2) {
+                    // Check color within the contour region
+                    setLabel(dst, "CIR", cnt)
                 }
             }
         }
@@ -328,27 +304,21 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
      * @param label the label / text to display
      * @param contour the contour to which the label should apply
      */
-    private fun setLabel(im: Mat, label: String, contour: MatOfPoint) {
-        val fontface = Core.FONT_HERSHEY_SIMPLEX
-        val scale = 0.4 // 0.4; 3.0
-        val thickness = 1 // 1; 3
+
+    private fun setLabel(dst: Mat, label: String, cnt: MatOfPoint) {
+        val fontFace = Core.FONT_HERSHEY_SIMPLEX
+        val fontScale = 0.5
+        val thickness = 2
         val baseline = IntArray(1)
-        val text = Imgproc.getTextSize(label, fontface, scale, thickness, baseline)
-        val r = Imgproc.boundingRect(contour)
-        val pt = Point(
-            r.x + (r.width - text.width) / 2,
-            r.y + (r.height + text.height) / 2
-        )
-        /*
-        Imgproc.rectangle(
-                im,
-                new Point(r.x + 0, r.y + baseline[0]),
-                new Point(r.x + text.width, r.y -text.height),
-                new Scalar(255,255,255),
-                -1
-                );
-        */
-        Imgproc.putText(im, label, pt, fontface, scale, RGB_RED, thickness)
+
+        val textSize = Imgproc.getTextSize(label, fontFace, fontScale, thickness, baseline)
+
+        val r = Imgproc.boundingRect(cnt)
+        val center = Point((r.x + r.width / 2).toDouble(), (r.y + r.height / 2).toDouble())
+        val bottomLeft = Point(center.x - textSize.width / 2, center.y + textSize.height / 2)
+
+        Imgproc.rectangle(dst, r.tl(), r.br(), Scalar(255.0, 0.0, 0.0), 2)
+        Imgproc.putText(dst, label, bottomLeft, fontFace, fontScale, Scalar(255.0, 0.0, 0.0), thickness)
     }
 
     /**
@@ -370,55 +340,15 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
         private val TAG = MainActivity::class.java.name
 
         /**
-         * whether or not to log the memory usage per frame
-         */
-        private const val LOG_MEM_USAGE = true
-
-        /**
-         * detect only red objects
-         */
-        private const val DETECT_RED_OBJECTS_ONLY = false
-
-        /**
-         * the lower red HSV range (lower limit)
-         */
-        private val HSV_LOW_RED1 = Scalar(0.0, 100.0, 100.0)
-
-        /**
-         * the lower red HSV range (upper limit)
-         */
-        private val HSV_LOW_RED2 = Scalar(10.0, 255.0, 255.0)
-
-        /**
-         * the upper red HSV range (lower limit)
-         */
-        private val HSV_HIGH_RED1 = Scalar(160.0, 100.0, 100.0)
-
-        /**
-         * the upper red HSV range (upper limit)
-         */
-        private val HSV_HIGH_RED2 = Scalar(179.0, 255.0, 255.0)
-
-        /**
-         * definition of RGB red
-         */
-        private val RGB_RED = Scalar(255.0, 0.0, 0.0)
-
-        /**
          * frame size width
          */
-        private const val FRAME_SIZE_WIDTH = 640
+        private const val FRAME_SIZE_WIDTH = 360
 
         /**
          * frame size height
          */
-        private const val FRAME_SIZE_HEIGHT = 480
+        private const val FRAME_SIZE_HEIGHT = 360
 
-        /**
-         * whether or not to use a fixed frame size -> results usually in higher FPS
-         * 640 x 480
-         */
-        private const val FIXED_FRAME_SIZE = true
 
         /**
          * whether or not to use the database to display
