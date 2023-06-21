@@ -29,6 +29,7 @@ import org.opencv.core.Point
 import org.opencv.core.Scalar
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
+import java.lang.Math.abs
 
 /**
  * the main activity - entry to the application
@@ -204,7 +205,11 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
 
     override fun onCameraFrame(inputFrame: CvCameraViewFrame): Mat {
         // get the camera frame as gray scale image
-        val gray: Mat = inputFrame.gray()
+        val gray: Mat = if (DETECT_RED_OBJECTS_ONLY) {
+            inputFrame.rgba()
+        } else {
+            inputFrame.gray()
+        }
 
         // the image to output on the screen in the end
         // -> get the unchanged color image
@@ -213,9 +218,25 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
         // down-scale and upscale the image to filter out the noise
         Imgproc.pyrDown(gray, downscaled, Size((gray.cols() / 2).toDouble(), (gray.rows() / 2).toDouble()))
         Imgproc.pyrUp(downscaled, upscaled, gray.size())
+        val blurredImage = Mat()
 
-        // Use Canny instead of threshold to catch squares with gradient shading
-        Imgproc.Canny(upscaled, bw, 0.0, 255.0)
+        Imgproc.GaussianBlur(upscaled, blurredImage, Size(5.0, 5.0), 0.0)
+
+
+        if (DETECT_RED_OBJECTS_ONLY) {
+            // convert the image from RGBA to HSV
+            Imgproc.cvtColor(upscaled, hsv, Imgproc.COLOR_RGB2HSV)
+            // threshold the image for the lower and upper HSV red range
+            Core.inRange(hsv, HSV_LOW_RED1, HSV_LOW_RED2, lowerRedRange)
+            Core.inRange(hsv, HSV_HIGH_RED1, HSV_HIGH_RED2, upperRedRange)
+            // put the two thresholded images together
+            Core.addWeighted(lowerRedRange, 1.0, upperRedRange, 1.0, 0.0, bw)
+            // apply canny to get edges only
+            Imgproc.Canny(bw, bw, 0.0, 255.0)
+        } else {
+            // Use Canny instead of threshold to catch squares with gradient shading
+            Imgproc.Canny(upscaled, bw, 0.0, 255.0)
+        }
 
         // dilate canny output to remove potential
         // holes between edge segments
@@ -246,6 +267,12 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
             val numberVertices = approxCurve!!.total().toInt()
             val contourArea = Imgproc.contourArea(cnt)
             Log.d(TAG, "vertices:$numberVertices")
+
+            // ignore too small areas
+            if (abs(contourArea) < 20 // || !Imgproc.isContourConvex(
+            ) {
+                continue
+            }
 
             // triangle detection
             if (numberVertices == 3) {
@@ -283,13 +310,16 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
             } else {
                 val r = Imgproc.boundingRect(cnt)
                 val radius = r.width / 2
-                val aspectRatio = r.width.toDouble() / r.height.toDouble()
-                val areaRatio = Math.abs(contourArea / (Math.PI * radius * radius))
-
-                // Circle detection based on aspect ratio and area ratio
-                if (Math.abs(1 - aspectRatio) <= 0.2 && areaRatio <= 0.2) {
-                    // Check color within the contour region
-                    setLabel(dst, "CIR", cnt)
+                if (abs(
+                        1 - r.width / r.height
+                    ) <= 0.1 &&
+                    abs(
+                            1 - contourArea / (Math.PI * radius * radius)
+                        ) <= 0.1
+                ) {
+                    if (!DISPLAY_IMAGES) {
+                        setLabel(dst, "CIR", cnt)
+                    }
                 }
             }
         }
@@ -340,15 +370,39 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
         private val TAG = MainActivity::class.java.name
 
         /**
+         * detect only red objects
+         */
+        private const val DETECT_RED_OBJECTS_ONLY = true
+
+        /**
+         * the lower red HSV range (lower limit)
+         */
+        private val HSV_LOW_RED1 = Scalar(0.0, 100.0, 100.0)
+
+        /**
+         * the lower red HSV range (upper limit)
+         */
+        private val HSV_LOW_RED2 = Scalar(10.0, 255.0, 255.0)
+
+        /**
+         * the upper red HSV range (lower limit)
+         */
+        private val HSV_HIGH_RED1 = Scalar(160.0, 100.0, 100.0)
+
+        /**
+         * the upper red HSV range (upper limit)
+         */
+        private val HSV_HIGH_RED2 = Scalar(179.0, 255.0, 255.0)
+
+        /**
          * frame size width
          */
-        private const val FRAME_SIZE_WIDTH = 360
+        private const val FRAME_SIZE_WIDTH = 1080
 
         /**
          * frame size height
          */
-        private const val FRAME_SIZE_HEIGHT = 360
-
+        private const val FRAME_SIZE_HEIGHT = 1080
 
         /**
          * whether or not to use the database to display

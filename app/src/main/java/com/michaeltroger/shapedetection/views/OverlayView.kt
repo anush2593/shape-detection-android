@@ -31,6 +31,11 @@ class OverlayView(private val mContext: Context, attrs: AttributeSet?) : View(mC
     private var triangle: Drawable? = null
 
     /**
+     * holds the triangle image
+     */
+    private var circle: Drawable? = null
+
+    /**
      * command by which the canvas should be changed
      * e.g. to switch the image
      */
@@ -60,6 +65,7 @@ class OverlayView(private val mContext: Context, attrs: AttributeSet?) : View(mC
     private fun loadImages() {
         rectangle = getDrawable(context, R.drawable.rectangle)
         triangle = getDrawable(context, R.drawable.triangle)
+        circle = getDrawable(context, R.drawable.circle)
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -76,6 +82,12 @@ class OverlayView(private val mContext: Context, attrs: AttributeSet?) : View(mC
                     drawTriangle(canvas)
                     chickenSound!!.start()
                 }
+
+                "circle" -> {
+                    clearCanvas(canvas)
+                    drawCircle(canvas)
+                    chickenSound!!.start()
+                }
             }
         }
     }
@@ -90,6 +102,12 @@ class OverlayView(private val mContext: Context, attrs: AttributeSet?) : View(mC
         val imageBounds = canvas.clipBounds
         triangle!!.bounds = imageBounds
         triangle!!.draw(canvas)
+    }
+
+    private fun drawCircle(canvas: Canvas) {
+        val imageBounds = canvas.clipBounds
+        circle!!.bounds = imageBounds
+        circle!!.draw(canvas)
     }
 
     private fun clearCanvas(canvas: Canvas) {
