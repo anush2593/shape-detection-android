@@ -204,123 +204,61 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
     }
 
     override fun onCameraFrame(inputFrame: CvCameraViewFrame): Mat {
-        // get the camera frame as gray scale image
-        val gray: Mat = if (DETECT_RED_OBJECTS_ONLY) {
-            inputFrame.rgba()
-        } else {
-            inputFrame.gray()
-        }
+        // get the camera frame as RGB image
+        val rgb = inputFrame.rgba()
 
-        // the image to output on the screen in the end
-        // -> get the unchanged color image
-        val dst = inputFrame.rgba()
+        // convert the image to HSV color space
+        val hsv = Mat()
+        Imgproc.cvtColor(rgb, hsv, Imgproc.COLOR_RGB2HSV)
+        // COLOR_RGBA2HSV
+        // define the lower and upper bounds for pink to red color range
+        val lowerPink = Scalar(150.0, 50.0, 50.0)
+        val upperRed = Scalar(180.0, 255.0, 255.0)
 
-        // down-scale and upscale the image to filter out the noise
-        Imgproc.pyrDown(gray, downscaled, Size((gray.cols() / 2).toDouble(), (gray.rows() / 2).toDouble()))
-        Imgproc.pyrUp(downscaled, upscaled, gray.size())
-        val blurredImage = Mat()
+        // create a binary mask for pixels within the specified color range
+        val mask = Mat()
+        Core.inRange(hsv, lowerPink, upperRed, mask)
 
-        Imgproc.GaussianBlur(upscaled, blurredImage, Size(5.0, 5.0), 0.0)
-
-
-        if (DETECT_RED_OBJECTS_ONLY) {
-            // convert the image from RGBA to HSV
-            Imgproc.cvtColor(upscaled, hsv, Imgproc.COLOR_RGB2HSV)
-            // threshold the image for the lower and upper HSV red range
-            Core.inRange(hsv, HSV_LOW_RED1, HSV_LOW_RED2, lowerRedRange)
-            Core.inRange(hsv, HSV_HIGH_RED1, HSV_HIGH_RED2, upperRedRange)
-            // put the two thresholded images together
-            Core.addWeighted(lowerRedRange, 1.0, upperRedRange, 1.0, 0.0, bw)
-            // apply canny to get edges only
-            Imgproc.Canny(bw, bw, 0.0, 255.0)
-        } else {
-            // Use Canny instead of threshold to catch squares with gradient shading
-            Imgproc.Canny(upscaled, bw, 0.0, 255.0)
-        }
-
-        // dilate canny output to remove potential
-        // holes between edge segments
-        Imgproc.dilate(bw, bw, Mat(), Point(-1.0, 1.0), 1)
+        // apply morphological operations to enhance the mask
+        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(5.0, 5.0))
+        val morphedMask = Mat()
+        Imgproc.morphologyEx(mask, morphedMask, Imgproc.MORPH_OPEN, kernel)
 
         // find contours and store them all as a list
-        val contours: List<MatOfPoint> = ArrayList()
-        contourImage = bw!!.clone()
-        Imgproc.findContours(
-            contourImage,
-            contours,
-            hierarchyOutputVector,
-            Imgproc.RETR_EXTERNAL,
-            Imgproc.CHAIN_APPROX_SIMPLE
-        )
+        val contours: MutableList<MatOfPoint> = ArrayList()
+        val hierarchy = Mat()
+        Imgproc.findContours(morphedMask, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE)
+
+        // the image to output on the screen in the end
+        val dst = rgb.clone()
 
         // loop over all found contours
-        for (cnt in contours) {
-            val curve = MatOfPoint2f(*cnt.toArray())
+        for (contour in contours) {
+            // approximate the contour to a polygon
+            val approxCurve = MatOfPoint2f()
+            val contourPerimeter = Imgproc.arcLength(MatOfPoint2f(*contour.toArray()), true)
+            Imgproc.approxPolyDP(MatOfPoint2f(*contour.toArray()), approxCurve, 0.02 * contourPerimeter, true)
 
-            // approximates a polygonal curve with the specified precision
-            Imgproc.approxPolyDP(
-                curve,
-                approxCurve,
-                0.02 * Imgproc.arcLength(curve, true),
-                true
-            )
-            val numberVertices = approxCurve!!.total().toInt()
-            val contourArea = Imgproc.contourArea(cnt)
-            Log.d(TAG, "vertices:$numberVertices")
+            // get the number of vertices of the polygon
+            val numVertices = approxCurve.total().toInt()
+            val contourArea = Imgproc.contourArea(contour)
 
-            // ignore too small areas
-            if (abs(contourArea) < 20 // || !Imgproc.isContourConvex(
-            ) {
+            // ignore small contours and non-convex shapes
+            if (abs(contourArea) < 150) {
                 continue
             }
 
             // triangle detection
-            if (numberVertices == 3) {
-                if (DISPLAY_IMAGES) {
-                    doSomethingWithContent("triangle")
-                } else {
-                    setLabel(dst, "TRI", cnt)
-                }
+            if (numVertices == 3) {
+                setLabel(dst, "Triangle", contour)
             }
-
-            // rectangle, pentagon and hexagon detection
-            if (numberVertices in 4..6) {
-                val cos: MutableList<Double> = ArrayList()
-                for (j in 2 until numberVertices + 1) {
-                    cos.add(
-                        angle(
-                            approxCurve!!.toArray()[j % numberVertices],
-                            approxCurve!!.toArray()[j - 2],
-                            approxCurve!!.toArray()[j - 1]
-                        )
-                    )
-                }
-                cos.sort()
-                val mincos = cos[0]
-                val maxcos = cos[cos.size - 1]
-
-                // rectangle detection
-                if (numberVertices == 4 && mincos >= -0.1 && maxcos <= 0.3) {
-                    if (DISPLAY_IMAGES) {
-                        doSomethingWithContent("rectangle")
-                    } else {
-                        setLabel(dst, "RECT", cnt)
-                    }
-                }
-            } else {
-                val r = Imgproc.boundingRect(cnt)
-                val radius = r.width / 2
-                if (abs(
-                        1 - r.width / r.height
-                    ) <= 0.1 &&
-                    abs(
-                            1 - contourArea / (Math.PI * radius * radius)
-                        ) <= 0.1
-                ) {
-                    if (!DISPLAY_IMAGES) {
-                        setLabel(dst, "CIR", cnt)
-                    }
-                }
+            // rectangle detection
+            else if (numVertices == 4) {
+                setLabel(dst, "Rectangle", contour)
+            }
+            // circle detection
+            else if (numVertices > 6) {
+                setLabel(dst, "CIR", contour)
             }
         }
 
@@ -397,12 +335,12 @@ class MainActivity : ComponentActivity(), CvCameraViewListener2 {
         /**
          * frame size width
          */
-        private const val FRAME_SIZE_WIDTH = 1080
+        private const val FRAME_SIZE_WIDTH = 640
 
         /**
          * frame size height
          */
-        private const val FRAME_SIZE_HEIGHT = 1080
+        private const val FRAME_SIZE_HEIGHT = 480
 
         /**
          * whether or not to use the database to display
