@@ -110,7 +110,7 @@ class MainActivity2 : ComponentActivity() {
 
         // Process each contour and draw shape on the original image
         for (contour in contours) {
-            val epsilon = 0.07 * Imgproc.arcLength(MatOfPoint2f(*contour.toArray()), true)
+            val epsilon = 0.06 * Imgproc.arcLength(MatOfPoint2f(*contour.toArray()), true)
             val approxCurve = MatOfPoint2f()
             Imgproc.approxPolyDP(MatOfPoint2f(*contour.toArray()), approxCurve, epsilon, true)
 
@@ -129,7 +129,7 @@ class MainActivity2 : ComponentActivity() {
             val isCircle = vertices >= 4 && areaRatio >= circleThreshold
             Log.d("vertices", approxCurve.total().toString())
 
-            if (Math.abs(contourArea) < 100) {
+            if (Math.abs(contourArea) < 200) {
                 continue
             }
 
@@ -140,44 +140,44 @@ class MainActivity2 : ComponentActivity() {
                     drawTriangle(rgbaMat, contour)
                 }
                 4 -> {
-                    val verticesList = approxCurve.toArray()
-                    val side1 = Math.sqrt(
-                        Math.pow((verticesList[1].x - verticesList[0].x), 2.0) + Math.pow(
-                            (verticesList[1].y - verticesList[0].y),
-                            2.0
-                        )
-                    )
-                    val side2 = Math.sqrt(
-                        Math.pow((verticesList[2].x - verticesList[1].x), 2.0) + Math.pow(
-                            (verticesList[2].y - verticesList[1].y),
-                            2.0
-                        )
-                    )
-                    val side3 = Math.sqrt(
-                        Math.pow((verticesList[3].x - verticesList[2].x), 2.0) + Math.pow(
-                            (verticesList[3].y - verticesList[2].y),
-                            2.0
-                        )
-                    )
-                    val side4 = Math.sqrt(
-                        Math.pow((verticesList[0].x - verticesList[3].x), 2.0) + Math.pow(
-                            (verticesList[0].y - verticesList[3].y),
-                            2.0
-                        )
-                    )
+                    val boundingRect = Imgproc.boundingRect(contour)
+                    val aspectRatio = boundingRect.width.toDouble() / boundingRect.height.toDouble()
 
-                    val aspectRatio =
-                        listOf(side1, side2, side3, side4).minOrNull()!! / listOf(side1, side2, side3, side4).maxOrNull()!!
-                    Log.d("aspectRatio", aspectRatio.toString())
+                    val perimeter = Imgproc.arcLength(MatOfPoint2f(*contour.toArray()), true)
+                    val numPoints = contour.rows()
+                    val circularity = 4 * Math.PI * (numPoints / (perimeter * perimeter))
 
-                    if (aspectRatio >= 0.7) {
-                        drawCircle(rgbaMat, contour)
+                    Log.d("circ", circularity.toString())
+                    if (circularity >= 0.011) {
+                        Log.d("aspectRatio draw circle", aspectRatio.toString())
+
+                        if (isCircle) drawCircle(rgbaMat, contour)
+                        else drawRectangle(rgbaMat, contour)
                     } else {
+                        Log.d("aspectRatio draw rect", aspectRatio.toString())
+
                         drawRectangle(rgbaMat, contour)
                     }
                 }
-                in 6..12 -> {
-                    drawCircle(rgbaMat, contour)
+                in 5..20 -> {
+                    val boundingRect = Imgproc.boundingRect(contour)
+                    val aspectRatio = boundingRect.width.toDouble() / boundingRect.height.toDouble()
+
+                    val perimeter = Imgproc.arcLength(MatOfPoint2f(*contour.toArray()), true)
+                    val numPoints = contour.rows()
+                    val circularity = 4 * Math.PI * (numPoints / (perimeter * perimeter))
+
+                    Log.d("circ", circularity.toString())
+                    if (circularity >= 0.01) {
+                        Log.d("aspectRatio draw circle", aspectRatio.toString())
+
+                        if (isCircle) drawCircle(rgbaMat, contour)
+                        else drawRectangle(rgbaMat, contour)
+                    } else {
+                        Log.d("aspectRatio draw rect", aspectRatio.toString())
+
+                        drawRectangle(rgbaMat, contour)
+                    }
                 }
             }
         }
