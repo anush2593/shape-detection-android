@@ -1,5 +1,6 @@
 package com.michaeltroger.shapedetection
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
@@ -9,6 +10,7 @@ import android.util.Log
 import android.widget.ImageView
 import androidx.activity.ComponentActivity
 import androidx.appcompat.widget.AppCompatButton
+import androidx.appcompat.widget.AppCompatTextView
 import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
 import org.opencv.core.Core
@@ -28,6 +30,10 @@ class MainActivity2 : ComponentActivity() {
 
     private lateinit var imageView: ImageView
     private lateinit var detectButton: AppCompatButton
+    private lateinit var tvTotalCount: AppCompatTextView
+    private var circleCount = 0
+    private var triangleCount = 0
+    private var rectangleCount = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,12 +44,16 @@ class MainActivity2 : ComponentActivity() {
 
         imageView = findViewById(R.id.imageView)
         detectButton = findViewById(R.id.selectImage)
+        tvTotalCount = findViewById(R.id.tvTotalCount)
         detectButton.setOnClickListener {
             openGallery()
         }
     }
 
     private fun openGallery() {
+        circleCount = 0
+        rectangleCount = 0
+        triangleCount = 0
         val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
         startActivityForResult(intent, PICK_IMAGE_REQUEST_CODE)
     }
@@ -59,6 +69,7 @@ class MainActivity2 : ComponentActivity() {
         }
     }
 
+    @SuppressLint("SetTextI18n")
     private fun detectShapes(imageBitmap: Bitmap) {
         // Convert Bitmap to Mat
         val rgbaMat = Mat()
@@ -151,8 +162,11 @@ class MainActivity2 : ComponentActivity() {
                     if (circularity >= 0.011) {
                         Log.d("aspectRatio draw circle", aspectRatio.toString())
 
-                        if (isCircle) drawCircle(rgbaMat, contour)
-                        else drawRectangle(rgbaMat, contour)
+                        if (isCircle) {
+                            drawCircle(rgbaMat, contour)
+                        } else {
+                            drawRectangle(rgbaMat, contour)
+                        }
                     } else {
                         Log.d("aspectRatio draw rect", aspectRatio.toString())
 
@@ -188,6 +202,7 @@ class MainActivity2 : ComponentActivity() {
 
         // Display the result image
         imageView.setImageBitmap(resultBitmap)
+        tvTotalCount.text = "Rectangles $rectangleCount \nTriangleCount $triangleCount \nCircle $circleCount"
     }
 
     private fun drawCircle(rgbaMat: Mat, contour: MatOfPoint) {
@@ -203,6 +218,7 @@ class MainActivity2 : ComponentActivity() {
             Scalar(0.0, 0.0, 255.0),
             1
         )
+        circleCount++
     }
 
     private fun drawRectangle(rgbaMat: Mat, contour: MatOfPoint) {
@@ -218,6 +234,7 @@ class MainActivity2 : ComponentActivity() {
             Scalar(255.0, 0.0, 0.0),
             1
         )
+        rectangleCount++
     }
 
     private fun drawTriangle(rgbaMat: Mat, contour: MatOfPoint) {
@@ -233,5 +250,6 @@ class MainActivity2 : ComponentActivity() {
             Scalar(0.0, 255.0, 0.0),
             1
         )
+        triangleCount++
     }
 }
