@@ -3,9 +3,12 @@ package com.michaeltroger.shapedetection
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
+import android.database.Cursor
 import android.graphics.Bitmap
+import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.provider.OpenableColumns
 import android.util.Log
 import android.widget.ImageView
 import androidx.activity.ComponentActivity
@@ -31,6 +34,8 @@ class MainActivity2 : ComponentActivity() {
     private lateinit var imageView: ImageView
     private lateinit var detectButton: AppCompatButton
     private lateinit var tvTotalCount: AppCompatTextView
+    private lateinit var tvImageName: AppCompatTextView
+
     private var circleCount = 0
     private var triangleCount = 0
     private var rectangleCount = 0
@@ -45,6 +50,7 @@ class MainActivity2 : ComponentActivity() {
         imageView = findViewById(R.id.imageView)
         detectButton = findViewById(R.id.selectImage)
         tvTotalCount = findViewById(R.id.tvTotalCount)
+        tvImageName = findViewById(R.id.tvImageName)
         detectButton.setOnClickListener {
             openGallery()
         }
@@ -58,13 +64,27 @@ class MainActivity2 : ComponentActivity() {
         startActivityForResult(intent, PICK_IMAGE_REQUEST_CODE)
     }
 
-
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == PICK_IMAGE_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
             val imageUri = data?.data
+            val cursor: Cursor? = imageUri?.let {
+                contentResolver.query(it, null, null, null, null)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                cursor?.use {
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    cursor.moveToFirst()
+                    val imageName = cursor.getString(nameIndex)
+                    tvImageName.text = imageName
+                }
+            }
+
             imageUri?.let {
-                val imageBitmap = MediaStore.Images.Media.getBitmap(contentResolver, imageUri)
+                val imageBitmap = MediaStore.Images.Media.getBitmap(
+                    contentResolver,
+                    imageUri
+                ) // content://com.google.android.apps.photos.contentprovider/-1/1/content%3A%2F%2Fmedia%2Fexternal%2Fimages%2Fmedia%2F1000006287/ORIGINAL/NONE/image%2Fjpeg/291054425
 
                 val targetWidth: Int
                 val targetHeight: Int
