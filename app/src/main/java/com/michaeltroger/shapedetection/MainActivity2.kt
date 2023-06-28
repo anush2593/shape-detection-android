@@ -187,7 +187,7 @@ class MainActivity2 : ComponentActivity() {
                     drawTriangle(rgbaMat, contour)
                 }
                 4 -> {
-                    val perimeter = 0.6 * Imgproc.arcLength(MatOfPoint2f(*contour.toArray()), true)
+                    val perimeter = 0.58 * Imgproc.arcLength(MatOfPoint2f(*contour.toArray()), true)
                     val numPoints = contour.rows()
                     val circularity = Math.PI * (numPoints / (perimeter * perimeter))
                     Log.d("areaRatio", areaRatio.toString())
