@@ -1,24 +1,17 @@
-package com.michaeltroger.shapedetection.views
+package shapedetection.views
 
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.drawable.Drawable
-import com.michaeltroger.shapedetection.R
 import android.graphics.PorterDuff
 import android.media.MediaPlayer
 import android.util.AttributeSet
 import android.util.Log
 import android.view.View
 import androidx.appcompat.content.res.AppCompatResources.getDrawable
+import com.solius.shapedetection.R
 
-/**
- * The overlay view is responsible for displaying
- * information on top of the camera
- * @param mContext the context
- * @param attrs the attributes
- * @author Michael Troger
- */
 class OverlayView(private val mContext: Context, attrs: AttributeSet?) : View(mContext, attrs) {
     /**
      * holds the rectangle image

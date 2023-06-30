@@ -1,17 +1,18 @@
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:opencv="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent" >
+    android:layout_height="match_parent">
 
     <org.opencv.android.JavaCameraView
+        android:id="@+id/java_camera_view"
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
         android:visibility="gone"
-        android:id="@+id/java_camera_view"
-        opencv:show_fps="false"
-        opencv:camera_id="any" />
+        opencv:camera_id="any"
+        opencv:show_fps="false"/>
 
-    <com.michaeltroger.shapedetection.views.OverlayView
+    <shapedetection.views.OverlayView
         android:id="@+id/overlay_view"
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"/>

@@ -1,4 +1,4 @@
-package com.michaeltroger.shapedetection
+package shapedetection
 
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -14,6 +14,7 @@ import android.widget.ImageView
 import androidx.activity.ComponentActivity
 import androidx.appcompat.widget.AppCompatButton
 import androidx.appcompat.widget.AppCompatTextView
+import com.solius.shapedetection.R
 import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
 import org.opencv.core.Core
@@ -84,7 +85,7 @@ class MainActivity2 : ComponentActivity() {
                 val imageBitmap = MediaStore.Images.Media.getBitmap(
                     contentResolver,
                     imageUri
-                ) // content://com.google.android.apps.photos.contentprovider/-1/1/content%3A%2F%2Fmedia%2Fexternal%2Fimages%2Fmedia%2F1000006287/ORIGINAL/NONE/image%2Fjpeg/291054425
+                ) 
 
                 val targetWidth: Int
                 val targetHeight: Int

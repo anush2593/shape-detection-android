@@ -1,4 +1,4 @@
-package com.michaeltroger.shapedetection
+package shapedetection
 
 import android.Manifest
 import android.app.ActivityManager
@@ -14,7 +14,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import com.michaeltroger.shapedetection.views.OverlayView
+import com.solius.shapedetection.R
 import org.opencv.android.BaseLoaderCallback
 import org.opencv.android.CameraBridgeViewBase
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewFrame
@@ -29,6 +29,7 @@ import org.opencv.core.Point
 import org.opencv.core.Scalar
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
+import shapedetection.views.OverlayView
 import java.lang.Math.abs
 
 /**
